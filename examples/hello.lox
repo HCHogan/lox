@@ -1,0 +1,4 @@
+print "hello";
+var shit = "bitch";
+
+print shit;
