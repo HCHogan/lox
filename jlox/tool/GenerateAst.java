@@ -52,6 +52,8 @@ public class GenerateAst {
     writer.println();
     writer.println("abstract class " + baseName + " {");
 
+    defineVisitor(writer, baseName, types);
+
     for (var type : types) {
       var className = type.split(":")[0].trim();
       var fields = type.split(":")[1].trim();
@@ -60,6 +62,19 @@ public class GenerateAst {
 
     writer.println("}");
     writer.close();
+  }
+
+  private static void defineVisitor(PrintWriter writer, String baseName,
+      List<String> types) {
+    writer.println("  interface Visitor<R> {");
+
+    for (var type : types) {
+      var typeName = type.split(":")[0].trim();
+      writer.println("    R visit" + typeName + baseName + "(" + typeName +
+          " " + baseName.toLowerCase() + ");");
+    }
+
+    writer.println("  }");
   }
 
   private static void defineType(PrintWriter writer, String baseName,
@@ -77,6 +92,12 @@ public class GenerateAst {
       writer.println("      this." + name + " = " + name + ";");
     }
 
+    writer.println("    }");
+
+    writer.println();
+    writer.println("    @Override");
+    writer.println("    <R> R accept(Visitor<R> visitor) {");
+    writer.println("      return visitor.visit" + baseName + className + "(this);");
     writer.println("    }");
 
     // Fields
