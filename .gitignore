@@ -1,1 +1,5 @@
 rlox/target
+build
+jlox/build
+*.jar
+*.class
