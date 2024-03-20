@@ -233,6 +233,9 @@ class Scanner {
           // A comment goes until the end of the line.
           while (peek() != '\n' && !isAtEnd())
             advance();
+        } if (match('*')) {
+          // A block comment goes until "*/".
+          commentBlock();
         } else {
           addToken(SLASH);
         }
@@ -260,6 +263,28 @@ class Scanner {
           Jlox.error(line, "Unexpected character.");
           break;
         }
+    }
+  }
+
+  private void commentBlock() {
+    int depth = 1;
+    while (depth > 0) {
+      if (isAtEnd()) {
+        Jlox.error(line, "Unterminated block comment.");
+        return;
+      }
+      if (peek() == '\n') {
+        line++;
+      }
+      if (peek() == '/' && peekNext() == '*') {
+        depth++;
+        advance();
+      }
+      if (peek() == '*' && peekNext() == '/') {
+        depth--;
+        advance();
+      }
+      advance();
     }
   }
 
