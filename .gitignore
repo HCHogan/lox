@@ -3,3 +3,4 @@ build
 jlox/build
 *.jar
 *.class
+.DS_Store

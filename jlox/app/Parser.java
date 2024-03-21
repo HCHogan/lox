@@ -22,7 +22,8 @@ class Parser {
   private final List<Token> tokens;
   private int current = 0;
 
-  private static class ParseError extends RuntimeException {}
+  private static class ParseError extends RuntimeException {
+  }
 
   Parser(List<Token> tokens) {
     this.tokens = tokens;
@@ -57,7 +58,7 @@ class Parser {
   private Expr comparison() {
     Expr expr = term();
 
-    while(match(GREATER, GREATER_EQUAL, LESS, LESS_EQUAL)) {
+    while (match(GREATER, GREATER_EQUAL, LESS, LESS_EQUAL)) {
       Token operator = previous();
       Expr right = term();
       // left-associative
@@ -70,7 +71,7 @@ class Parser {
   private Expr term() {
     Expr expr = factor();
 
-    while(match(MINUS, PLUS)) {
+    while (match(MINUS, PLUS)) {
       Token operator = previous();
       Expr right = factor();
       // left-associative
@@ -83,7 +84,7 @@ class Parser {
   private Expr factor() {
     Expr expr = unary();
 
-    while(match(SLASH, STAR)) {
+    while (match(SLASH, STAR)) {
       Token operator = previous();
       Expr right = unary();
       // left-associative
@@ -104,9 +105,12 @@ class Parser {
   }
 
   private Expr primary() {
-    if (match(FALSE)) return new Expr.Literal(false);
-    if (match(TRUE)) return new Expr.Literal(true);
-    if (match(NIL)) return new Expr.Literal(null);
+    if (match(FALSE))
+      return new Expr.Literal(false);
+    if (match(TRUE))
+      return new Expr.Literal(true);
+    if (match(NIL))
+      return new Expr.Literal(null);
 
     if (match(NUMBER, STRING)) {
       return new Expr.Literal(previous().literal);
@@ -123,7 +127,8 @@ class Parser {
   }
 
   private Token consume(TokenType type, String message) {
-    if (check(type)) return advance();
+    if (check(type))
+      return advance();
     throw error(peek(), message);
   }
 
@@ -131,7 +136,8 @@ class Parser {
     advance();
 
     while (!isAtEnd()) {
-      if (previous().type == SEMICOLON) return;
+      if (previous().type == SEMICOLON)
+        return;
 
       switch (peek().type) {
         case CLASS:
@@ -155,7 +161,7 @@ class Parser {
   }
 
   private boolean match(TokenType... types) {
-    for (TokenType type: types) {
+    for (TokenType type : types) {
       if (check(type)) {
         advance();
         return true;
@@ -165,12 +171,14 @@ class Parser {
   }
 
   private boolean check(TokenType type) {
-    if (isAtEnd()) return false;
+    if (isAtEnd())
+      return false;
     return peek().type == type;
   }
 
   private Token advance() {
-    if (!isAtEnd()) current++;
+    if (!isAtEnd())
+      current++;
     return previous();
   }
 
@@ -185,5 +193,4 @@ class Parser {
   private Token previous() {
     return tokens.get(current - 1);
   }
-
 }
