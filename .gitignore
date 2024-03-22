@@ -1,6 +1,8 @@
 rlox/target
 build
 jlox/build
+jlox/out
+jlox/.idea
 *.jar
 *.class
 .DS_Store

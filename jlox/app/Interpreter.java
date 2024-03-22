@@ -68,12 +68,15 @@ class Interpreter implements Expr.Visitor<Object> {
         checkNumberOperands(expr.operator, left, right);
         return (double) left * (double) right;
       case PLUS:
-        checkNumberOperands(expr.operator, left, right);
+//        checkNumberOperands(expr.operator, left, right);
         if (left instanceof Double && right instanceof Double) {
           return (double) left + (double) right;
         }
         if (left instanceof String && right instanceof String) {
           return (String) left + (String) right;
+        }
+        if (left instanceof String && right instanceof Double) {
+          return left + right.toString();
         }
         throw new RuntimeError(expr.operator,
             "Operands must be two numbers or two strings.");

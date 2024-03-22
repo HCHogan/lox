@@ -9,6 +9,7 @@ import java.nio.file.Paths;
 import java.util.List;
 
 public class Jlox {
+  private static final Interpreter interpreter = new Interpreter();
   static boolean hadError = false;
   static boolean hadRuntimeError = false;
 
@@ -58,6 +59,7 @@ public class Jlox {
     Expr expression = parser.parse();
     if (hadError)
       return;
+    interpreter.interpret(expression);
     System.out.println(new AstPrinter().print(expression));
   }
 

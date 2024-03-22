@@ -103,9 +103,10 @@ class Scanner {
       case '/':
         if (match('/')) {
           // A comment goes until the end of the line.
+          System.out.println("scanned //");
           while (peek() != '\n' && !isAtEnd())
             advance();
-        } if (match('*')) {
+        } else if (match('*')) {
           // A block comment goes until "*/".
           commentBlock();
         } else {
