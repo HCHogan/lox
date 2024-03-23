@@ -3,6 +3,24 @@ package jlox.app;
 import java.util.List;
 
 class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
+  private Environment environment = new Environment();
+
+  @Override
+  public Void visitVarStmt(Stmt.Var stmt) {
+    Object value = null;
+    if (stmt.initializer != null) {
+      value = evaluate(stmt.initializer);
+    }
+
+    environment.define(stmt.name.lexeme, value);
+    return null;
+  }
+
+  @Override
+  public Object visitVariableExpr(Expr.Variable expr) {
+    return environment.get(expr.name);
+  }
+
   @Override
   public Object visitLiteralExpr(Expr.Literal expr) {
     return expr.value;
