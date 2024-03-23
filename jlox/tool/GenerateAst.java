@@ -2,13 +2,14 @@ package jlox.tool;
 
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 
 // This program generates the AST classes for the expressions in Lox.
 // for example, it generates the following classes:
 /*
-package com.craftinginterpreters.lox;
+package jlox.app;
 
 abstract class Expr {
   static class Binary extends Expr {
@@ -36,12 +37,14 @@ public class GenerateAst {
     String outputDir = args[0];
     defineAst(outputDir, "Expr",
         Arrays.asList("Binary   : Expr left, Token operator, Expr right",
+            "Assign   : Token name, Expr value",
             "Grouping : Expr expression",
             "Literal  : Object value",
             "Unary    : Token operator, Expr right",
         "Variable : Token name"
       ));
     defineAst(outputDir, "Stmt", Arrays.asList(
+        "Block      : List<Stmt> statements",
         "Expression : Expr expression",
         "Print      : Expr expression",
       "Var : Token name, Expr initializer"
@@ -51,7 +54,7 @@ public class GenerateAst {
   private static void defineAst(String outputDir, String baseName,
       List<String> types) throws IOException {
     var path = outputDir + "/" + baseName + ".java";
-    PrintWriter writer = new PrintWriter(path, "UTF-8");
+    PrintWriter writer = new PrintWriter(path, StandardCharsets.UTF_8);
 
     writer.println("package jlox.app;");
     writer.println();

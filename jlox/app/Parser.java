@@ -13,11 +13,15 @@ import java.util.List;
                   | statement ;
  * varDecl        → "var" IDENTIFIER ( "=" expression )? ";" ;
  * statement      → exprStmt
-                  | printStmt ;
+                  | printStmt
+                  | block ;
+ * block          → "{" declaration* "}" ;
  * exprStmt       → expression ";" ;
  * printStmt      → "print" expression ";" ;
  *
- * expression     → equality ;
+ * expression     → assignment ;
+ * assignment     → IDENTIFIER "=" assignment
+                  | equality ;
  * equality       → comparison ( ( "!=" | "==" ) comparison )* ;
  * comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
  * term           → factor ( ( "-" | "+" ) factor )* ;
@@ -74,6 +78,7 @@ class Parser {
   private Stmt statement() {
     if (match(PRINT))
       return printStatement();
+    if (match(LEFT_BRACE)) return new Stmt.Block(block());
     return expressionStatement();
   }
 
@@ -89,8 +94,36 @@ class Parser {
     return new Stmt.Expression(value);
   }
 
+  private List<Stmt> block() {
+    List<Stmt> statements = new ArrayList<>();
+    // Returning the raw list of Stmts instead of wrapping in the Stmt.Block makes it easier to reuse.
+    while (!check(RIGHT_BRACE) && !isAtEnd()) {
+      statements.add(declaration());
+    }
+    consume(RIGHT_BRACE, "Expect '}' after block.");
+    return statements;
+  }
+
+  private Expr assignment() {
+    Expr expr = equality();
+    if (match(EQUAL)) {
+      Token equals = previous();
+      Expr value = assignment();
+
+      if (expr instanceof Expr.Variable) {
+        Token name = ((Expr.Variable)expr).name;
+        return new Expr.Assign(name, value);
+      }
+      // We don't need to throw here since the parser isn't in a confused state where we need
+      // to go into panic mode and synchronize
+      error(equals, "Invalid assignment target.");
+    }
+
+    return expr;
+  }
+
   private Expr expression() {
-    return equality();
+    return assignment();
   }
 
   private Expr equality() {
