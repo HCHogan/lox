@@ -35,18 +35,27 @@ public class GenerateAst {
       System.exit(64);
     }
     String outputDir = args[0];
-    defineAst(outputDir, "Expr",
-        Arrays.asList("Binary   : Expr left, Token operator, Expr right",
-            "Assign   : Token name, Expr value",
-            "Grouping : Expr expression",
-            "Literal  : Object value",
-            "Unary    : Token operator, Expr right",
-        "Variable : Token name"
-      ));
+    /*
+     * There is no place in the grammar where both an expression and a statement are allowed.
+     * The operands of, say, + are always expressions, never statements. The body of a while
+     * loop is always a statement.
+     * Since the two syntaxes are disjoint, we don’t need a single base class that they all
+     * inherit from. Splitting expressions and statements into separate class hierarchies
+     * enables the Java compiler to help us find dumb mistakes like passing a statement to
+     * a Java method that expects an expression.
+     */
+    defineAst(outputDir, "Expr", Arrays.asList(
+      "Binary   : Expr left, Token operator, Expr right",
+      "Assign   : Token name, Expr value",
+      "Grouping : Expr expression",
+      "Literal  : Object value",
+      "Unary    : Token operator, Expr right",
+      "Variable : Token name"
+    ));
     defineAst(outputDir, "Stmt", Arrays.asList(
-        "Block      : List<Stmt> statements",
-        "Expression : Expr expression",
-        "Print      : Expr expression",
+      "Block      : List<Stmt> statements",
+      "Expression : Expr expression",
+      "Print      : Expr expression",
       "Var : Token name, Expr initializer"
     ));
   }
