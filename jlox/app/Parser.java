@@ -11,15 +11,21 @@ import java.util.Arrays;
  * Language grammar:
  * program        → declaration* EOF ;
  * declaration    → varDecl
+                  | funDecl
                   | statement ;
+ * funDecl        → "fun" function ;
+ * function       → IDENTIFIER "(" parameters? ")" block ;
+ * parameters     → IDENTIFIER ( "," IDENTIFIER )* ;
  * varDecl        → "var" IDENTIFIER ( "=" expression )? ";" ;
  * statement      → exprStmt
                   | printStmt
                   | block
                   | whileStmt
                   | forStmt
+                  | returnStmt
                   | ifStmt;
 
+ * returnStmt     → "return" expression? ";" ;
  * forStmt        → "for" "(" ( varDecl | exprStmt | ";" ) expression? ";" expression? ")" statement ;
  * whileStmt      → "while" "(" expression ")" statement ;
  * ifStmt         → "if" "(" expression ")" statement
@@ -37,8 +43,9 @@ import java.util.Arrays;
  * comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
  * term           → factor ( ( "-" | "+" ) factor )* ;
  * factor         → unary ( ( "/" | "*" ) unary )* ;
- * unary          → ( "!" | "-" ) unary
- *                | primary ;
+ * unary          → ( "!" | "-" ) unary | call ;
+ * call           → primary ( "(" arguments? ")" )* ;
+ * arguments      → expression ( "," expression )* ;
  * primary        → NUMBER | STRING | "true" | "false" | "nil"
  *                | "(" expression ")"
  *                | IDENTIFIER ;
@@ -65,6 +72,9 @@ class Parser {
 
   private Stmt declaration() {
     try {
+      if (match(FUN)) {
+        return function("function");
+      }
       if (match(VAR)) {
         return varDeclaration();
       }
@@ -73,6 +83,30 @@ class Parser {
       synchronize();
       return null;
     }
+  }
+
+  private Stmt.Function function(String kind) {
+    Token name = consume(IDENTIFIER, "Expect " + kind + " name.");
+    consume(LEFT_PAREN, "Expect '(' after " + kind + " name.");
+    List<Token> parameters = new ArrayList<>();
+    if (!check(RIGHT_PAREN)) {
+      do {
+        if (parameters.size() >= 255) {
+          // don't throw, same reason to not throw in arguments parsing
+          error(peek(), "Cannot have more than 255 parameters.");
+        }
+
+        parameters.add(
+          consume(IDENTIFIER, "Expect parameter name.")
+        );
+      } while (match(COMMA));
+    }
+    consume(RIGHT_PAREN, "Expect ')' after parameters.");
+
+    // parse the body
+    consume(LEFT_BRACE, "Expect '{' before " + kind + " body.");
+    List<Stmt> body = block();
+    return new Stmt.Function(name, parameters, body);
   }
 
   private Stmt varDeclaration() {
@@ -90,9 +124,21 @@ class Parser {
     if (match(FOR)) return forStatement();
     if (match(IF)) return ifStatement();
     if (match(PRINT)) return printStatement();
+    if (match(RETURN)) return returnStatement();
     if (match(WHILE)) return whileStatement();
     if (match(LEFT_BRACE)) return new Stmt.Block(block());
     return expressionStatement();
+  }
+
+  private Stmt returnStatement() {
+    Token keyword = previous();
+    Expr value = null;
+    if (!check(SEMICOLON)) {
+      value = expression();
+    }
+
+    consume(SEMICOLON, "Expect ';' after return value.");
+    return new Stmt.Return(keyword, value);
   }
 
   // Desugar to whileStatement.
@@ -277,7 +323,43 @@ class Parser {
       return new Expr.Unary(operator, right);
     }
 
-    return primary();
+    return call();
+  }
+
+  private Expr call() {
+    // First, we parse a primary expression, the “left operand” to the call.
+    // Then, each time we see a (, we call finishCall() to parse the call expression
+    // using the previously parsed expression as the callee. The returned expression becomes
+    // the new expr and we loop to see if the result is itself called.
+    Expr expr = primary();
+    while (true) {
+      if (match(LEFT_PAREN)) {
+        expr = finishCall(expr);
+      } else {
+        break;
+      }
+    }
+
+    return expr;
+  }
+
+  private Expr finishCall(Expr callee) {
+    List<Expr> arguments = new ArrayList<>();
+    // parse the arguments
+    if (!check(RIGHT_PAREN)) {
+      do {
+        if (arguments.size() >= 255) {
+          // We don't throw here, remember that throwing is how we kick into panic mode,
+          // which the parser is in a confused state but now our parser is still in perfectly valid state.
+          error(peek(), "Cannot have more than 255 arguments.");
+        }
+        arguments.add(expression());
+      } while (match(COMMA));
+    }
+
+    Token paren = consume(RIGHT_PAREN, "Expect ')' after arguments.");
+
+    return new Expr.Call(callee, paren, arguments);
   }
 
   private Expr primary() {

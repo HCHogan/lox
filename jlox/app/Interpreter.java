@@ -1,9 +1,28 @@
 package jlox.app;
 
 import java.util.List;
+import java.util.ArrayList;
 
 class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
-  private Environment environment = new Environment();
+  final Environment globals = new Environment();
+  private Environment environment = globals;
+
+  Interpreter() {
+    globals.define("clock", new LoxCallable() {
+      @Override
+      public int arity() {
+        return 0;
+      }
+
+      @Override
+      public Object call(Interpreter interpreter, List<Object> arguments) {
+        return (double)System.currentTimeMillis() / 1000.0;
+      }
+
+      @Override
+      public String toString() { return "<native fn>"; }
+    });
+  }
 
   @Override
   public Void visitVarStmt(Stmt.Var stmt) {
@@ -53,6 +72,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     return null;
   }
 
+
   @Override
   public Object visitGroupingExpr(Expr.Grouping expr) {
     return evaluate(expr.expression);
@@ -65,6 +85,13 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
   @Override
   public Void visitExpressionStmt(Stmt.Expression stmt) {
     evaluate(stmt.expression);
+    return null;
+  }
+
+  @Override
+  public Void visitFunctionStmt(Stmt.Function stmt) {
+    LoxFunction function = new LoxFunction(stmt, environment);
+    environment.define(stmt.name.lexeme, function);
     return null;
   }
 
@@ -160,6 +187,24 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     return null;
   }
 
+  @Override
+  public Object visitCallExpr(Expr.Call expr) {
+    Object callee = evaluate(expr.callee);
+    List<Object> arguments = new ArrayList<>();
+    for (Expr argument : expr.arguments) {
+      arguments.add(evaluate(argument);
+    }
+
+    if (!(callee instanceof LoxCallable function)) {
+      throw new RuntimeError(expr.paren, "Can only call functions and classes.");
+    }
+    if (arguments.size() != function.arity()) {
+      throw new RuntimeError(expr.paren,
+          "Expected " + function.arity() + " arguments but got " + arguments.size() + ".");
+    }
+    return function.call(this, arguments);
+  }
+
   void interpret(List<Stmt> statements) {
     try {
       for (Stmt statement : statements) {
@@ -181,7 +226,7 @@ class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     return null;
   }
 
-  private void executeBlock(List<Stmt> statements, Environment environment) {
+  public void executeBlock(List<Stmt> statements, Environment environment) {
     Environment previous = this.environment;
     try {
       this.environment = environment;

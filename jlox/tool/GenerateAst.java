@@ -35,6 +35,16 @@ public class GenerateAst {
       System.exit(64);
     }
     String outputDir = args[0];
+    defineAst(outputDir, "Expr", Arrays.asList(
+      "Binary   : Expr left, Token operator, Expr right",
+      "Call     : Expr callee, Token paren, List<Expr> arguments",
+      "Assign   : Token name, Expr value",
+      "Grouping : Expr expression",
+      "Literal  : Object value",
+      "Logical  : Expr left, Token operator, Expr right",
+      "Unary    : Token operator, Expr right",
+      "Variable : Token name"
+    ));
     /*
      * There is no place in the grammar where both an expression and a statement are allowed.
      * The operands of, say, + are always expressions, never statements. The body of a while
@@ -44,21 +54,14 @@ public class GenerateAst {
      * enables the Java compiler to help us find dumb mistakes like passing a statement to
      * a Java method that expects an expression.
      */
-    defineAst(outputDir, "Expr", Arrays.asList(
-      "Binary   : Expr left, Token operator, Expr right",
-      "Assign   : Token name, Expr value",
-      "Grouping : Expr expression",
-      "Literal  : Object value",
-      "Logical  : Expr left, Token operator, Expr right",
-      "Unary    : Token operator, Expr right",
-      "Variable : Token name"
-    ));
     defineAst(outputDir, "Stmt", Arrays.asList(
       "Block      : List<Stmt> statements",
       "Expression : Expr expression",
+      "Function   : Token name, List<Token> params, List<Stmt> body",
       "If         : Expr condition, Stmt thenBranch, Stmt elseBranch",
       "Print      : Expr expression",
       "Var        : Token name, Expr initializer",
+      "Return     : Token keyword, Expr value",
       "While      : Expr condition, Stmt body"
     ));
   }
