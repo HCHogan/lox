@@ -95,6 +95,7 @@ class Parser {
     return expressionStatement();
   }
 
+  // Desugar to whileStatement.
   private Stmt forStatement() {
     consume(LEFT_PAREN, "Expect '(' after 'for'.");
     Stmt initializer;
