@@ -1,6 +1,10 @@
 package jlox.app;
 
 import java.util.List;
+
+// When a function is declared, it captures a reference to the current environment.
+// The function should capture a frozen snapshot of the environment as it existed at
+// the moment the function was declared.
 public class LoxFunction implements LoxCallable {
   private final Stmt.Function declaration;
   private final Environment closure;
