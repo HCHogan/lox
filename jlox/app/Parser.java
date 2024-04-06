@@ -4,15 +4,17 @@ import static jlox.app.TokenType.*;
 
 import java.io.IOError;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.Arrays;
+import java.util.List;
 
 /*
  * Language grammar:
  * program        → declaration* EOF ;
  * declaration    → varDecl
                   | funDecl
-                  | statement ;
+                  | statement
+                  | classDecl ;
+ * classDecl      → "class" IDENTIFIER "{" function* "}" ;
  * funDecl        → "fun" function ;
  * function       → IDENTIFIER "(" parameters? ")" block ;
  * parameters     → IDENTIFIER ( "," IDENTIFIER )* ;
@@ -26,7 +28,8 @@ import java.util.Arrays;
                   | ifStmt;
 
  * returnStmt     → "return" expression? ";" ;
- * forStmt        → "for" "(" ( varDecl | exprStmt | ";" ) expression? ";" expression? ")" statement ;
+ * forStmt        → "for" "(" ( varDecl | exprStmt | ";" ) expression? ";"
+ expression? ")" statement ;
  * whileStmt      → "while" "(" expression ")" statement ;
  * ifStmt         → "if" "(" expression ")" statement
                   | ( "else" statement )? ;
@@ -35,7 +38,7 @@ import java.util.Arrays;
  * printStmt      → "print" expression ";" ;
  *
  * expression     → assignment ;
- * assignment     → IDENTIFIER "=" assignment
+ * assignment     → ( call "." )? IDENTIFIER "=" assignment
                   | logic_or;
  * logic_or       → logic_and ( "or" logic_and )* ;
  * logic_and      → equality ( "and" equality )* ;
@@ -44,7 +47,7 @@ import java.util.Arrays;
  * term           → factor ( ( "-" | "+" ) factor )* ;
  * factor         → unary ( ( "/" | "*" ) unary )* ;
  * unary          → ( "!" | "-" ) unary | call ;
- * call           → primary ( "(" arguments? ")" )* ;
+ * call           → primary ( "(" arguments? ")" | "." IDENTIFIER )* ;
  * arguments      → expression ( "," expression )* ;
  * primary        → NUMBER | STRING | "true" | "false" | "nil"
  *                | "(" expression ")"
@@ -55,12 +58,9 @@ class Parser {
   private final List<Token> tokens;
   private int current = 0;
 
-  private static class ParseError extends RuntimeException {
-  }
+  private static class ParseError extends RuntimeException {}
 
-  Parser(List<Token> tokens) {
-    this.tokens = tokens;
-  }
+  Parser(List<Token> tokens) { this.tokens = tokens; }
 
   List<Stmt> parse() {
     List<Stmt> statements = new ArrayList<>();
@@ -72,6 +72,8 @@ class Parser {
 
   private Stmt declaration() {
     try {
+      if (match(CLASS))
+        return classDeclaration();
       if (match(FUN)) {
         return function("function");
       }
@@ -85,6 +87,20 @@ class Parser {
     }
   }
 
+  private Stmt classDeclaration() {
+    Token name = consume(IDENTIFIER, "Expect class name.");
+    consume(LEFT_BRACE, "Expect '{' before class body.");
+
+    List<Stmt.Function> methods = new ArrayList<>();
+    while (!check(RIGHT_BRACE) && !isAtEnd()) {
+      methods.add(function("method"));
+    }
+
+    consume(RIGHT_BRACE, "Expect '}' after class body");
+
+    return new Stmt.Class(name, methods);
+  }
+
   private Stmt.Function function(String kind) {
     Token name = consume(IDENTIFIER, "Expect " + kind + " name.");
     consume(LEFT_PAREN, "Expect '(' after " + kind + " name.");
@@ -96,9 +112,7 @@ class Parser {
           error(peek(), "Cannot have more than 255 parameters.");
         }
 
-        parameters.add(
-          consume(IDENTIFIER, "Expect parameter name.")
-        );
+        parameters.add(consume(IDENTIFIER, "Expect parameter name."));
       } while (match(COMMA));
     }
     consume(RIGHT_PAREN, "Expect ')' after parameters.");
@@ -121,12 +135,18 @@ class Parser {
   }
 
   private Stmt statement() {
-    if (match(FOR)) return forStatement();
-    if (match(IF)) return ifStatement();
-    if (match(PRINT)) return printStatement();
-    if (match(RETURN)) return returnStatement();
-    if (match(WHILE)) return whileStatement();
-    if (match(LEFT_BRACE)) return new Stmt.Block(block());
+    if (match(FOR))
+      return forStatement();
+    if (match(IF))
+      return ifStatement();
+    if (match(PRINT))
+      return printStatement();
+    if (match(RETURN))
+      return returnStatement();
+    if (match(WHILE))
+      return whileStatement();
+    if (match(LEFT_BRACE))
+      return new Stmt.Block(block());
     return expressionStatement();
   }
 
@@ -167,8 +187,11 @@ class Parser {
 
     Stmt body = statement();
 
-    if (increment != null) body = new Stmt.Block(Arrays.asList(body, new Stmt.Expression(increment)));
-    if (condition == null) condition = new Expr.Literal(true);
+    if (increment != null)
+      body =
+          new Stmt.Block(Arrays.asList(body, new Stmt.Expression(increment)));
+    if (condition == null)
+      condition = new Expr.Literal(true);
     body = new Stmt.While(condition, body);
     if (initializer != null) {
       body = new Stmt.Block(Arrays.asList(initializer, body));
@@ -212,7 +235,8 @@ class Parser {
 
   private List<Stmt> block() {
     List<Stmt> statements = new ArrayList<>();
-    // Returning the raw list of Stmts instead of wrapping in the Stmt.Block makes it easier to reuse.
+    // Returning the raw list of Stmts instead of wrapping in the Stmt.Block
+    // makes it easier to reuse.
     while (!check(RIGHT_BRACE) && !isAtEnd()) {
       statements.add(declaration());
     }
@@ -229,9 +253,12 @@ class Parser {
       if (expr instanceof Expr.Variable) {
         Token name = ((Expr.Variable)expr).name;
         return new Expr.Assign(name, value);
+      } else if (expr instanceof Expr.Get) {
+        Expr.Get get = (Expr.Get)expr;
+        return new Expr.Set(get.object, get.name, value);
       }
-      // We don't need to throw here since the parser isn't in a confused state where we need
-      // to go into panic mode and synchronize
+      // We don't need to throw here since the parser isn't in a confused state
+      // where we need to go into panic mode and synchronize
       error(equals, "Invalid assignment target.");
     }
 
@@ -260,9 +287,7 @@ class Parser {
     return expr;
   }
 
-  private Expr expression() {
-    return assignment();
-  }
+  private Expr expression() { return assignment(); }
 
   private Expr equality() {
     Expr expr = comparison();
@@ -328,13 +353,18 @@ class Parser {
 
   private Expr call() {
     // First, we parse a primary expression, the “left operand” to the call.
-    // Then, each time we see a (, we call finishCall() to parse the call expression
-    // using the previously parsed expression as the callee. The returned expression becomes
-    // the new expr and we loop to see if the result is itself called.
+    // Then, each time we see a (, we call finishCall() to parse the call
+    // expression using the previously parsed expression as the callee. The
+    // returned expression becomes the new expr and we loop to see if the result
+    // is itself called.
     Expr expr = primary();
+    // The outer while loop there corresponds to the * in the grammar rule.
     while (true) {
       if (match(LEFT_PAREN)) {
         expr = finishCall(expr);
+      } else if (match(DOT)) {
+        Token name = consume(IDENTIFIER, "Expect property name after '.'.");
+        expr = new Expr.Get(expr, name);
       } else {
         break;
       }
@@ -349,8 +379,9 @@ class Parser {
     if (!check(RIGHT_PAREN)) {
       do {
         if (arguments.size() >= 255) {
-          // We don't throw here, remember that throwing is how we kick into panic mode,
-          // which the parser is in a confused state but now our parser is still in perfectly valid state.
+          // We don't throw here, remember that throwing is how we kick into
+          // panic mode, which the parser is in a confused state but now our
+          // parser is still in perfectly valid state.
           error(peek(), "Cannot have more than 255 arguments.");
         }
         arguments.add(expression());
@@ -378,6 +409,8 @@ class Parser {
       return new Expr.Variable(previous());
     }
 
+    if (match(THIS)) return new Expr.This(previous());
+
     if (match(LEFT_PAREN)) {
       Expr expr = expression();
       consume(RIGHT_PAREN, "Expect ')' after expression.");
@@ -402,15 +435,15 @@ class Parser {
         return;
 
       switch (peek().type) {
-        case CLASS:
-        case FUN:
-        case VAR:
-        case FOR:
-        case IF:
-        case WHILE:
-        case PRINT:
-        case RETURN:
-          return;
+      case CLASS:
+      case FUN:
+      case VAR:
+      case FOR:
+      case IF:
+      case WHILE:
+      case PRINT:
+      case RETURN:
+        return;
       }
 
       advance();
@@ -444,15 +477,9 @@ class Parser {
     return previous();
   }
 
-  private boolean isAtEnd() {
-    return peek().type == EOF;
-  }
+  private boolean isAtEnd() { return peek().type == EOF; }
 
-  private Token peek() {
-    return tokens.get(current);
-  }
+  private Token peek() { return tokens.get(current); }
 
-  private Token previous() {
-    return tokens.get(current - 1);
-  }
+  private Token previous() { return tokens.get(current - 1); }
 }

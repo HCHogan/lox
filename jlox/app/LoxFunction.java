@@ -2,13 +2,16 @@ package jlox.app;
 
 import java.util.List;
 
-// When a function is declared, it captures a reference to the current environment.
-// The function should capture a frozen snapshot of the environment as it existed at
-// the moment the function was declared.
+// When a function is declared, it captures a reference to the current
+// environment. The function should capture a frozen snapshot of the environment
+// as it existed at the moment the function was declared.
 public class LoxFunction implements LoxCallable {
   private final Stmt.Function declaration;
   private final Environment closure;
-  LoxFunction(Stmt.Function declaration, Environment closure) {
+  private final boolean isInitializer;
+
+  LoxFunction(Stmt.Function declaration, Environment closure, boolean isInitializer) {
+    this.isInitializer = isInitializer;
     this.closure = closure;
     this.declaration = declaration;
   }
@@ -21,13 +24,24 @@ public class LoxFunction implements LoxCallable {
       environment.define(declaration.params.get(i).lexeme, arguments.get(i));
     }
 
-    // The return statement is implemented as an exception, unwind the stack until the call function.
+    // The return statement is implemented as an exception, unwind the stack
+    // until the call function.
     try {
       interpreter.executeBlock(declaration.body, environment);
     } catch (Return returnValue) {
+      // early return in initializer
+      if (isInitializer) return closure.getAt(0, "this");
       return returnValue.value;
     }
+
+    if (isInitializer) return closure.getAt(0, "this");
     return null;
+  }
+
+  LoxFunction bind(LoxInstance instance) {
+    Environment environment = new Environment(closure);
+    environment.define("this", instance);
+    return new LoxFunction(declaration, environment, isInitializer);
   }
 
   @Override
